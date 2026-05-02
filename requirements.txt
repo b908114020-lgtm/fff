@@ -1,13 +1,7 @@
 streamlit
 ultralytics
-opencv-python-headless==4.10.0.84
-numpy<2
+opencv-python-headless
+numpy
 Pillow
-torch
-torchvision
 libgl1
 libglib2.0-0
-libsm6
-libxext6
-libxrender1
-ffmpeg
