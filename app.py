@@ -8,6 +8,9 @@ import tempfile
 import os
 
 
+# ==============================
+# 姿勢判斷函式
+# ==============================
 def calc_distance(p1, p2):
     return math.sqrt(
         (float(p1[0]) - float(p2[0])) ** 2 +
@@ -26,29 +29,34 @@ def judge_posture(results):
         return "Keypoints Not Enough"
 
     nose = keypoints[0]
+
     left_ear = keypoints[3]
     right_ear = keypoints[4]
+
     left_shoulder = keypoints[5]
     right_shoulder = keypoints[6]
+
     left_hip = keypoints[11]
     right_hip = keypoints[12]
 
     left_ear_conf = confs[3]
     right_ear_conf = confs[4]
+
     left_shoulder_conf = confs[5]
     right_shoulder_conf = confs[6]
 
     shoulder_width = calc_distance(left_shoulder, right_shoulder)
 
     torso_length = (
-        calc_distance(left_shoulder, left_hip)
-        + calc_distance(right_shoulder, right_hip)
+        calc_distance(left_shoulder, left_hip) +
+        calc_distance(right_shoulder, right_hip)
     ) / 2
 
     is_side_lying = False
 
     if left_shoulder_conf < 0.4 or right_shoulder_conf < 0.4:
         is_side_lying = True
+
     elif torso_length > 5 and shoulder_width / torso_length < 0.5:
         is_side_lying = True
 
@@ -58,8 +66,10 @@ def judge_posture(results):
 
         if right_visibility > left_visibility + 0.2:
             return "Left-Side Lying"
+
         elif left_visibility > right_visibility + 0.2:
             return "Right-Side Lying"
+
         else:
             dist_nose_to_left_ear = calc_distance(nose, left_ear)
             dist_nose_to_right_ear = calc_distance(nose, right_ear)
@@ -72,6 +82,9 @@ def judge_posture(results):
     return "Supine"
 
 
+# ==============================
+# 單張圖片分析
+# ==============================
 def analyze_image(image, model, alarm_threshold):
     image = image.convert("RGB")
     image_np = np.array(image)
@@ -131,24 +144,35 @@ def analyze_image(image, model, alarm_threshold):
     return current_posture, annotated_image, is_alarm
 
 
+# ==============================
+# 顯示結果
+# ==============================
 def show_result(current_posture, annotated_image, is_alarm):
     if current_posture == "Left-Side Lying":
         st.warning("目前姿勢：左側躺 Left-Side Lying")
+
     elif current_posture == "Right-Side Lying":
         st.warning("目前姿勢：右側躺 Right-Side Lying")
+
     elif current_posture == "Supine":
         st.success("目前姿勢：平躺 / 趴睡 Supine")
+
     elif current_posture == "No Person Detected":
         st.error("偵測結果：沒有偵測到人")
+
     elif current_posture == "Keypoints Not Enough":
         st.error("偵測結果：人體關鍵點不足")
+
     else:
         st.error(f"偵測結果：{current_posture}")
 
     st.write(f"連續相同姿勢次數：{st.session_state.consecutive_count}")
 
     if is_alarm:
-        st.error("⚠️ 警報：病人已連續多張圖片維持相同姿勢，建議協助翻身或確認狀況。")
+        st.error(
+            "⚠️ 警報：病人已連續多張圖片維持相同姿勢，"
+            "建議協助翻身或確認狀況。"
+        )
     else:
         st.info("目前尚未達到警報條件。")
 
@@ -159,6 +183,9 @@ def show_result(current_posture, annotated_image, is_alarm):
     )
 
 
+# ==============================
+# 從影片每隔幾秒擷取一張 frame
+# ==============================
 def extract_frames_from_video(video_path, interval_seconds):
     frames = []
 
@@ -209,6 +236,9 @@ def extract_frames_from_video(video_path, interval_seconds):
     return frames, fps, duration
 
 
+# ==============================
+# Streamlit 頁面設定
+# ==============================
 st.set_page_config(
     page_title="病房姿勢監測系統",
     page_icon="🏥",
@@ -223,6 +253,10 @@ st.write(
     "判斷病人目前為左側躺、右側躺或平躺。"
 )
 
+
+# ==============================
+# 側邊欄設定
+# ==============================
 st.sidebar.header("⚙️ 系統設定")
 
 alarm_threshold = st.sidebar.number_input(
@@ -247,6 +281,9 @@ st.sidebar.write("- Right-Side Lying：右側躺")
 st.sidebar.write("- Supine：平躺 / 趴睡")
 
 
+# ==============================
+# 載入 YOLO 模型
+# ==============================
 @st.cache_resource
 def load_model():
     return YOLO("yolov8n-pose.pt")
@@ -254,6 +291,10 @@ def load_model():
 
 model = load_model()
 
+
+# ==============================
+# 初始化 Session State
+# ==============================
 if "last_posture" not in st.session_state:
     st.session_state.last_posture = None
 
@@ -261,6 +302,9 @@ if "consecutive_count" not in st.session_state:
     st.session_state.consecutive_count = 0
 
 
+# ==============================
+# 選擇輸入方式
+# ==============================
 mode = st.radio(
     "請選擇影像輸入方式",
     ["上傳圖片", "使用鏡頭拍攝", "上傳影片並定時截圖"],
@@ -268,6 +312,9 @@ mode = st.radio(
 )
 
 
+# ==============================
+# 上傳圖片模式
+# ==============================
 if mode == "上傳圖片":
     uploaded_files = st.file_uploader(
         "請上傳病房圖片，可以一次上傳多張",
@@ -290,12 +337,19 @@ if mode == "上傳圖片":
                 alarm_threshold=alarm_threshold
             )
 
-            show_result(current_posture, annotated_image, is_alarm)
+            show_result(
+                current_posture=current_posture,
+                annotated_image=annotated_image,
+                is_alarm=is_alarm
+            )
 
     else:
         st.info("請先上傳圖片，系統會開始進行姿勢分析。")
 
 
+# ==============================
+# 鏡頭拍攝模式
+# ==============================
 elif mode == "使用鏡頭拍攝":
     st.subheader("📷 使用鏡頭拍攝")
 
@@ -312,12 +366,19 @@ elif mode == "使用鏡頭拍攝":
             alarm_threshold=alarm_threshold
         )
 
-        show_result(current_posture, annotated_image, is_alarm)
+        show_result(
+            current_posture=current_posture,
+            annotated_image=annotated_image,
+            is_alarm=is_alarm
+        )
 
     else:
         st.info("請先開啟鏡頭並拍攝一張照片。")
 
 
+# ==============================
+# 上傳影片並定時截圖模式
+# ==============================
 elif mode == "上傳影片並定時截圖":
     st.subheader("🎥 上傳影片並定時截圖分析")
 
@@ -350,12 +411,15 @@ elif mode == "上傳影片並定時截圖":
 
             if not frames:
                 st.error("影片讀取失敗，請確認影片格式是否正確。")
+
             else:
                 st.success(
                     f"影片長度約 {duration:.1f} 秒，"
                     f"每 {video_interval} 秒截圖一次，"
                     f"共擷取 {len(frames)} 張圖片。"
                 )
+
+                st.subheader("📊 影片取樣分析結果")
 
                 posture_summary = {
                     "Left-Side Lying": 0,
@@ -390,10 +454,15 @@ elif mode == "上傳影片並定時截圖":
                     st.write(f"### 第 {frame_index + 1} 張截圖")
                     st.write(f"影片時間：{frame_time:.1f} 秒")
 
-                    show_result(current_posture, annotated_image, is_alarm)
+                    show_result(
+                        current_posture=current_posture,
+                        annotated_image=annotated_image,
+                        is_alarm=is_alarm
+                    )
 
                 st.markdown("---")
                 st.subheader("📌 影片整體統計")
+
                 st.write(f"左側躺 Left-Side Lying：{posture_summary.get('Left-Side Lying', 0)} 張")
                 st.write(f"右側躺 Right-Side Lying：{posture_summary.get('Right-Side Lying', 0)} 張")
                 st.write(f"平躺 / 趴睡 Supine：{posture_summary.get('Supine', 0)} 張")
@@ -412,6 +481,9 @@ elif mode == "上傳影片並定時截圖":
         st.info("請先上傳一段病房錄影影片。")
 
 
+# ==============================
+# 重置按鈕
+# ==============================
 st.markdown("---")
 
 if st.button("🔄 重置連續姿勢計數"):
